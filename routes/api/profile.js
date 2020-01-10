@@ -1,5 +1,4 @@
 const express = require('express');
-
 const router = express.Router();
 const { check, validationResult } = require('express-validator');
 
@@ -164,5 +163,127 @@ router.delete('/', auth, async (req, res) => {
 		res.status(500).send('Server Error');
 	}
 });
+
+// @route    PUT api/profile/experience
+// @desc     Update profile with experience
+// @access   Private
+router.put(
+	'/experience/:exp_id',
+	[
+		auth,
+		[
+			check('title', 'Title is required').not().isEmpty(),
+			check('company', 'Company is required').not().isEmpty(),
+			check('from', 'From date is required').not().isEmpty()
+		]
+	],
+	async (req, res) => {
+		// VAlidation errors
+		const errors = validationResult(req);
+
+		if (!errors.isEmpty()) {
+			return res.status(400).json({ errors: errors.array() });
+		}
+
+		// Destructure req.body
+		const {
+			title,
+			company,
+			location,
+			from,
+			to,
+			current,
+			description
+		} = req.body;
+
+		// Create new experience object and assign values from req.body title = title:title (shorthand)
+		const newExp = {
+			title,
+			company,
+			location,
+			from,
+			to,
+			current,
+			description
+		};
+
+		// Fetch & update profile from mongoDB
+		try {
+			// todo - Updating experience challenge
+
+			// Fetch user profile from mongo
+			const profile = await Profile.findOne({ user: req.user.id });
+
+			// If update get id of experience and update
+			if (req.params.exp_id) {
+				const updateIndex = profile.experience
+					.map((exp) => exp.id)
+					.indexOf(req.params.exp_id);
+
+				profile.experience.splice(updateIndex, 1, newExp);
+			} else if (req.params.exp_id === 0) {
+				profile.experience.unshift(newExp);
+				await profile.save();
+			}
+
+			res.json(profile);
+		} catch (err) {
+			console.error(err.message);
+			res.status(400).send('Server Error');
+		}
+	}
+);
+
+// @route    DELETE api/profile
+// @desc     Deletes profile, user and posts
+// @access   Private
+router.delete('/experience/:exp_id', auth, async (req, res) => {
+	try {
+		const profile = await Profile.findOne({ user: req.user.id });
+
+		// Get remove index
+		const removeIndex = profile.experience
+			// map will return an array with all of the experience object id's
+			.map((exp) => exp.id)
+			// IndexOf will return the index of the id that matches the requested id
+			.indexOf(req.params.exp_id);
+
+		// here the splice method removes 1 object in the array from where removeIndex starts
+		profile.experience.splice(removeIndex, 1);
+
+		await profile.save();
+
+		res.json({ msg: 'Experience deleted' });
+	} catch (err) {
+		console.error(err.message);
+		res.status(500).send('Server Error');
+	}
+});
+
+/**
+ * 
+ */
+// router.put('/experience/:exp_id', auth, async (req, res) => {
+// 	try {
+// 		const profile = await Profile.findOne({ user: req.user.id });
+
+// 		// Get remove index
+// 		const updateIndex = profile.experience
+// 			// map will return an array with all of the experience object id's
+// 			.map((exp) => exp.id)
+// 			// IndexOf will return the index of the id that matches the requested id
+// 			.indexOf(req.params.exp_id);
+
+// 		// here the splice method removes 1 object in the array from where removeIndex starts
+// 		profile.experience.splice(removeIndex, 1);
+
+// 		await profile.save();
+
+// 		res.json({ msg: 'User deleted' });
+// 	} catch (err) {
+// 		console.error(err.message);
+// 		res.status(500).send('Server Error');
+// 	}
+// });
 
 module.exports = router;
